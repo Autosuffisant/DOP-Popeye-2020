@@ -1,0 +1,70 @@
+version: "3.9"
+services:
+  poll:
+    container_name: poll
+    build:
+      context: ./poll
+      dockerfile: Dockerfile
+    depends_on:
+      - redis
+    ports:
+      - "5000:80"
+    networks:
+      - poll-tier
+    restart: always
+
+  result:
+    container_name: result
+    build:
+      context: ./result
+      dockerfile: Dockerfile
+    networks:
+      - result-tier
+    ports:
+      - "5001:80"
+    restart: always
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    networks:
+      - back-tier
+    depends_on:
+      - db
+      - redis
+    restart: always
+
+  db:
+    image: postgres
+    networks:
+      - result-tier
+      - back-tier
+    volumes:
+      - "./schema.sql:/docker-entrypoint-initdb.d/init.sql"
+      - db-data:/var/lib/postgresql/data
+    environment:
+      - "POSTGRES_PASSWORD=password"
+      - "POSTGRES_USER=postgres"
+    restart: always
+
+  redis:
+    image: redis
+    networks:
+      - poll-tier
+      - back-tier
+    restart: always
+    depends_on:
+      - db
+    expose:
+      - 6379
+    ports:
+      - "6379:6379"
+
+networks:
+  poll-tier:
+  result-tier:
+  back-tier:
+
+volumes:
+  db-data:
